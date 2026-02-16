@@ -345,7 +345,7 @@ else:
 # ---------------- Automation UI ----------------
 header = tk.Frame(automation_frame, bg="#2a2a5f", height=70)
 header.pack(fill=tk.X)
-tk.Label(header, text="🌌 Ideal Choice Home Health Home", font=("Segoe UI", 28, "bold"), fg="#ffffff", bg="#2a2a5f").pack(pady=15)
+tk.Label(header, text="🌌 Ideal Choice Home Health Homeeeeeeee", font=("Segoe UI", 28, "bold"), fg="#ffffff", bg="#2a2a5f").pack(pady=15)
 
 btn_frame = tk.Frame(automation_frame, bg="#1e1e2f")
 btn_frame.pack(pady=15)
