@@ -4,6 +4,7 @@ import hashlib
 import subprocess
 import threading
 import tkinter as tk
+from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 import shutil
 import psutil
@@ -24,6 +25,11 @@ if not os.path.exists(USERS_FILE):
         json.dump({}, f)
 
 automation_process = None
+
+# --- Paths ---
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_URL = "https://github.com/Mher0919/Ideal-Choice-Home-Health"  # <-- your GitHub repo
+APP_DIR = SCRIPT_DIR  # assuming the app is running in its folder
 
 # ---------------- Helpers ----------------
 def hash_password(password):
@@ -111,7 +117,61 @@ def stop_button_clicked(log_widget, stop_btn, status_label, indicator):
         stop_btn.config(state=tk.DISABLED)
         status_label.config(text="Stopped")
         indicator.stop_animation()
+def update_app(log_widget):
+    """Pull latest version from GitHub and update local files"""
+    log_widget.insert(tk.END, "🔄 Checking for updates...\n")
+    log_widget.see(tk.END)
 
+    # Check if git is installed
+    if shutil.which("git") is None:
+        messagebox.showerror("Error", "Git is not installed on this PC.")
+        return
+
+    # Determine whether to pull or clone
+    git_dir = os.path.join(APP_DIR, ".git")
+    tmp_dir = None  # default
+    if os.path.exists(git_dir):
+        cmd = ["git", "-C", APP_DIR, "pull"]
+    else:
+        tmp_dir = APP_DIR + "_tmp_update"
+        if os.path.exists(tmp_dir):
+            shutil.rmtree(tmp_dir)
+        cmd = ["git", "clone", REPO_URL, tmp_dir]
+
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        for line in process.stdout:
+            log_widget.insert(tk.END, line)
+            log_widget.see(tk.END)
+        process.wait()
+
+        # Only copy from tmp_dir if we cloned
+        if tmp_dir and os.path.exists(tmp_dir):
+            for item in os.listdir(tmp_dir):
+                src_path = os.path.join(tmp_dir, item)
+                dst_path = os.path.join(APP_DIR, item)
+                if os.path.isdir(src_path):
+                    if os.path.exists(dst_path):
+                        shutil.rmtree(dst_path)
+                    shutil.copytree(src_path, dst_path)
+                else:
+                    shutil.copy2(src_path, dst_path)
+            shutil.rmtree(tmp_dir)
+
+        log_widget.insert(tk.END, "\n✅ App updated successfully!\n")
+        log_widget.see(tk.END)
+        messagebox.showinfo("Update", "App updated! Please restart to apply changes.")
+    except Exception as e:
+        log_widget.insert(tk.END, f"\n❌ Update failed: {str(e)}\n")
+        log_widget.see(tk.END)
+        messagebox.showerror("Update Error", f"Update failed: {str(e)}")
 # ---------------- Animated Indicator ----------------
 class RunningIndicator(tk.Canvas):
     def __init__(self, parent, size=20):
@@ -241,6 +301,13 @@ start_btn.pack(side=tk.LEFT, padx=15)
 stop_btn = create_button(btn_frame, "Stop 🛑", lambda: stop_button_clicked(log_area, stop_btn, status_label, indicator), bg="#ff4c4c")
 stop_btn.pack(side=tk.LEFT, padx=15)
 stop_btn.config(state=tk.DISABLED)
+
+update_btn = tk.Button(
+    btn_frame, text="Update App ⬆️", font=("Segoe UI", 16, "bold"),
+    bg="#00ccff", fg="white", bd=0, padx=25, pady=10,
+    command=lambda: update_app(log_area)
+)
+update_btn.pack(side=tk.LEFT, padx=15)
 
 # ---------------- Change Password ----------------
 def change_password_action():
