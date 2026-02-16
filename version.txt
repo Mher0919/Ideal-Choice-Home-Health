@@ -1,0 +1,2 @@
+version.txt → 1.0.3
+main.exe → Latest compiled version
