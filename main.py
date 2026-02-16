@@ -8,8 +8,6 @@ import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 import shutil
 import psutil
-import requests
-import time
 
 # ---------------- Paths & NPX ----------------
 NPX_CMD = shutil.which("npx")
@@ -38,17 +36,9 @@ if not os.path.exists(USERS_FILE):
 automation_process = None
 
 # --- Paths ---
-
-REPO_URL = "https://github.com/Mher0919/Ideal-Choice-Home-Health.git"
-APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))  # your app folder
-TMP_DIR = APP_DIR + "_tmp_update"
-EXE_NAME = os.path.basename(sys.argv[0])  # running exe
-
-# ---------------- Auto-Update ----------------
-LOCAL_VERSION = "1.0.0"  # Update this whenever you rebuild the exe
-VERSION_URL = "https://raw.githubusercontent.com/Mher0919/Ideal-Choice-Home-Health/main/version.txt"
-EXE_URL_TEMPLATE = "https://raw.githubusercontent.com/Mher0919/Ideal-Choice-Home-Health/main/dist/main.exe"
-
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_URL = "https://github.com/Mher0919/Ideal-Choice-Home-Health"  # <-- your GitHub repo
+APP_DIR = SCRIPT_DIR  # assuming the app is running in its folder
 
 # ---------------- Helpers ----------------
 def hash_password(password):
@@ -191,65 +181,6 @@ def update_app(log_widget):
         log_widget.insert(tk.END, f"\n❌ Update failed: {str(e)}\n")
         log_widget.see(tk.END)
         messagebox.showerror("Update Error", f"Update failed: {str(e)}")
-
-def auto_update(log_widget):
-    """Update the full project folder safely from GitHub."""
-    def run_update():
-        try:
-            log_widget.insert(tk.END, "🔄 Checking for updates...\n")
-            log_widget.see(tk.END)
-
-            # Make sure git is installed
-            if shutil.which("git") is None:
-                messagebox.showerror("Error", "Git is not installed on this PC.")
-                return
-
-            # Clone repo to temporary folder
-            if os.path.exists(TMP_DIR):
-                shutil.rmtree(TMP_DIR)
-            subprocess.check_call(["git", "clone", REPO_URL, TMP_DIR])
-
-            # Copy all files except running exe
-            for item in os.listdir(TMP_DIR):
-                src_path = os.path.join(TMP_DIR, item)
-                dst_path = os.path.join(APP_DIR, item)
-
-                if os.path.abspath(dst_path) == os.path.abspath(sys.argv[0]):
-                    continue  # skip running exe
-
-                if os.path.isdir(src_path):
-                    if os.path.exists(dst_path):
-                        shutil.rmtree(dst_path)
-                    shutil.copytree(src_path, dst_path)
-                else:
-                    shutil.copy2(src_path, dst_path)
-
-            # Remove temp folder
-            shutil.rmtree(TMP_DIR)
-
-            log_widget.insert(tk.END, "✅ Project updated successfully!\n")
-            log_widget.see(tk.END)
-
-            # Replace running exe safely via batch
-            new_exe_path = os.path.join(APP_DIR, EXE_NAME)
-            bat_path = os.path.join(APP_DIR, "update.bat")
-            with open(bat_path, "w") as f:
-                f.write(f"""@echo off
-timeout /t 2
-start "" "{new_exe_path}"
-exit
-""")
-            log_widget.insert(tk.END, "🔄 Restarting app to apply updates...\n")
-            subprocess.Popen([bat_path], shell=True)
-            sys.exit()
-
-        except Exception as e:
-            log_widget.insert(tk.END, f"❌ Update failed: {str(e)}\n")
-            log_widget.see(tk.END)
-            messagebox.showerror("Update Error", f"Update failed: {str(e)}")
-
-    threading.Thread(target=run_update, daemon=True).start()
-
 # ---------------- Animated Indicator ----------------
 class RunningIndicator(tk.Canvas):
     def __init__(self, parent, size=20):
@@ -355,7 +286,7 @@ else:
 # ---------------- Automation UI ----------------
 header = tk.Frame(automation_frame, bg="#2a2a5f", height=70)
 header.pack(fill=tk.X)
-tk.Label(header, text="🌌 Ideal Choice Home Health Homeeeeeeee", font=("Segoe UI", 28, "bold"), fg="#ffffff", bg="#2a2a5f").pack(pady=15)
+tk.Label(header, text="🌌 Ideal Choice Home Health Home", font=("Segoe UI", 28, "bold"), fg="#ffffff", bg="#2a2a5f").pack(pady=15)
 
 btn_frame = tk.Frame(automation_frame, bg="#1e1e2f")
 btn_frame.pack(pady=15)
@@ -466,6 +397,4 @@ footer.pack(fill=tk.X, side=tk.BOTTOM)
 # --- Show login first ---
 login_frame.lift()
 
-# Start auto-update check in background thread (non-blocking)
-threading.Thread(target=lambda: auto_update(log_area), daemon=True).start()
 root.mainloop()
