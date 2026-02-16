@@ -1,0 +1,24 @@
+{
+  "name": "abraham-automation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "electron/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^25.2.0",
+    "electron": "^40.4.1",
+    "playwright": "^1.58.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  }
+}
