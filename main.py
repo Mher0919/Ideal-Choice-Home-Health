@@ -38,9 +38,11 @@ if not os.path.exists(USERS_FILE):
 automation_process = None
 
 # --- Paths ---
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_URL = "https://raw.githubusercontent.com/Mher0919/Ideal-Choice-Home-Health/main/version.txt"  # <-- your GitHub repo
-APP_DIR = SCRIPT_DIR  # assuming the app is running in its folder
+
+REPO_URL = "https://github.com/Mher0919/Ideal-Choice-Home-Health.git"
+APP_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))  # your app folder
+TMP_DIR = APP_DIR + "_tmp_update"
+EXE_NAME = os.path.basename(sys.argv[0])  # running exe
 
 # ---------------- Auto-Update ----------------
 LOCAL_VERSION = "1.0.0"  # Update this whenever you rebuild the exe
@@ -191,54 +193,62 @@ def update_app(log_widget):
         messagebox.showerror("Update Error", f"Update failed: {str(e)}")
 
 def auto_update(log_widget):
-    """Check GitHub for a newer version and download it automatically."""
-    try:
-        log_widget.insert(tk.END, "🔄 Checking for updates...\n")
-        log_widget.see(tk.END)
-
-        # Fetch remote version
-        r = requests.get(VERSION_URL, timeout=10)
-        r.raise_for_status()
-        remote_version = r.text.strip()
-
-        if remote_version != LOCAL_VERSION:
-            log_widget.insert(tk.END, f"⬆ New version detected: {remote_version}\n")
+    """Update the full project folder safely from GitHub."""
+    def run_update():
+        try:
+            log_widget.insert(tk.END, "🔄 Checking for updates...\n")
             log_widget.see(tk.END)
 
-            # Prepare download paths
-            exe_path = sys.argv[0]
-            new_exe_path = exe_path + ".new"
-            exe_url = EXE_URL_TEMPLATE.format(version=remote_version)
+            # Make sure git is installed
+            if shutil.which("git") is None:
+                messagebox.showerror("Error", "Git is not installed on this PC.")
+                return
 
-            # Download new exe
-            with requests.get(exe_url, stream=True) as r2:
-                r2.raise_for_status()
-                with open(new_exe_path, "wb") as f:
-                    for chunk in r2.iter_content(chunk_size=8192):
-                        f.write(chunk)
+            # Clone repo to temporary folder
+            if os.path.exists(TMP_DIR):
+                shutil.rmtree(TMP_DIR)
+            subprocess.check_call(["git", "clone", REPO_URL, TMP_DIR])
 
-            log_widget.insert(tk.END, "✅ Downloaded new version, replacing old exe...\n")
+            # Copy all files except running exe
+            for item in os.listdir(TMP_DIR):
+                src_path = os.path.join(TMP_DIR, item)
+                dst_path = os.path.join(APP_DIR, item)
+
+                if os.path.abspath(dst_path) == os.path.abspath(sys.argv[0]):
+                    continue  # skip running exe
+
+                if os.path.isdir(src_path):
+                    if os.path.exists(dst_path):
+                        shutil.rmtree(dst_path)
+                    shutil.copytree(src_path, dst_path)
+                else:
+                    shutil.copy2(src_path, dst_path)
+
+            # Remove temp folder
+            shutil.rmtree(TMP_DIR)
+
+            log_widget.insert(tk.END, "✅ Project updated successfully!\n")
             log_widget.see(tk.END)
 
-            # Create a batch script to replace running exe
-            bat_path = os.path.join(os.path.dirname(exe_path), "update.bat")
+            # Replace running exe safely via batch
+            new_exe_path = os.path.join(APP_DIR, EXE_NAME)
+            bat_path = os.path.join(APP_DIR, "update.bat")
             with open(bat_path, "w") as f:
                 f.write(f"""@echo off
 timeout /t 2
-move /y "{new_exe_path}" "{exe_path}"
-start "" "{exe_path}"
+start "" "{new_exe_path}"
 exit
 """)
-            # Launch the updater and exit current exe
+            log_widget.insert(tk.END, "🔄 Restarting app to apply updates...\n")
             subprocess.Popen([bat_path], shell=True)
             sys.exit()
-        else:
-            log_widget.insert(tk.END, "✅ Already up to date\n")
-            log_widget.see(tk.END)
 
-    except Exception as e:
-        log_widget.insert(tk.END, f"❌ Update check failed: {e}\n")
-        log_widget.see(tk.END)
+        except Exception as e:
+            log_widget.insert(tk.END, f"❌ Update failed: {str(e)}\n")
+            log_widget.see(tk.END)
+            messagebox.showerror("Update Error", f"Update failed: {str(e)}")
+
+    threading.Thread(target=run_update, daemon=True).start()
 
 # ---------------- Animated Indicator ----------------
 class RunningIndicator(tk.Canvas):
