@@ -1,10 +1,10 @@
 import os
+import sys
 import json
 import hashlib
 import subprocess
 import threading
 import tkinter as tk
-from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 import shutil
 import psutil
@@ -14,12 +14,21 @@ NPX_CMD = shutil.which("npx")
 if NPX_CMD is None:
     raise RuntimeError("❌ npx not found in PATH. Install Node.js first.")
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TS_SCRIPT_PATH = os.path.join(SCRIPT_DIR, "src", "main.ts")
+# ---------------- App directory logic ----------------
+if getattr(sys, "frozen", False):
+    # Running as .exe
+    APP_DIR = os.path.dirname(os.path.dirname(sys.executable))  # go up from dist/
+else:
+    # Running as .py script
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Path to the TypeScript automation script
+TS_SCRIPT_PATH = os.path.join(APP_DIR, "src", "main.ts")
 if not os.path.exists(TS_SCRIPT_PATH):
     raise FileNotFoundError(f"❌ Cannot find main.ts at {TS_SCRIPT_PATH}")
 
-USERS_FILE = os.path.join(SCRIPT_DIR, "users.json")
+# Users file
+USERS_FILE = os.path.join(APP_DIR, "users.json")
 if not os.path.exists(USERS_FILE):
     with open(USERS_FILE, "w") as f:
         json.dump({}, f)
