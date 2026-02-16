@@ -45,7 +45,7 @@ APP_DIR = SCRIPT_DIR  # assuming the app is running in its folder
 # ---------------- Auto-Update ----------------
 LOCAL_VERSION = "1.0.0"  # Update this whenever you rebuild the exe
 VERSION_URL = "https://raw.githubusercontent.com/Mher0919/Ideal-Choice-Home-Health/main/version.txt"
-EXE_URL_TEMPLATE = "https://github.com/Mher0919/Ideal-Choice-Home-Health/releases/download/v{version}/main.exe"
+EXE_URL_TEMPLATE = "https://raw.githubusercontent.com/Mher0919/Ideal-Choice-Home-Health/main/dist/main.exe"
 
 
 # ---------------- Helpers ----------------
