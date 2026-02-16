@@ -8,6 +8,8 @@ import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 import shutil
 import psutil
+import requests
+import time
 
 # ---------------- Paths & NPX ----------------
 NPX_CMD = shutil.which("npx")
@@ -37,8 +39,14 @@ automation_process = None
 
 # --- Paths ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_URL = "https://github.com/Mher0919/Ideal-Choice-Home-Health"  # <-- your GitHub repo
+REPO_URL = "https://raw.githubusercontent.com/Mher0919/Ideal-Choice-Home-Health/main/version.txt"  # <-- your GitHub repo
 APP_DIR = SCRIPT_DIR  # assuming the app is running in its folder
+
+# ---------------- Auto-Update ----------------
+LOCAL_VERSION = "1.0.0"  # Update this whenever you rebuild the exe
+VERSION_URL = "https://raw.githubusercontent.com/Mher0919/Ideal-Choice-Home-Health/main/version.txt"
+EXE_URL_TEMPLATE = "https://github.com/Mher0919/Ideal-Choice-Home-Health/releases/download/v{version}/main.exe"
+
 
 # ---------------- Helpers ----------------
 def hash_password(password):
@@ -181,6 +189,57 @@ def update_app(log_widget):
         log_widget.insert(tk.END, f"\n❌ Update failed: {str(e)}\n")
         log_widget.see(tk.END)
         messagebox.showerror("Update Error", f"Update failed: {str(e)}")
+
+def auto_update(log_widget):
+    """Check GitHub for a newer version and download it automatically."""
+    try:
+        log_widget.insert(tk.END, "🔄 Checking for updates...\n")
+        log_widget.see(tk.END)
+
+        # Fetch remote version
+        r = requests.get(VERSION_URL, timeout=10)
+        r.raise_for_status()
+        remote_version = r.text.strip()
+
+        if remote_version != LOCAL_VERSION:
+            log_widget.insert(tk.END, f"⬆ New version detected: {remote_version}\n")
+            log_widget.see(tk.END)
+
+            # Prepare download paths
+            exe_path = sys.argv[0]
+            new_exe_path = exe_path + ".new"
+            exe_url = EXE_URL_TEMPLATE.format(version=remote_version)
+
+            # Download new exe
+            with requests.get(exe_url, stream=True) as r2:
+                r2.raise_for_status()
+                with open(new_exe_path, "wb") as f:
+                    for chunk in r2.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+            log_widget.insert(tk.END, "✅ Downloaded new version, replacing old exe...\n")
+            log_widget.see(tk.END)
+
+            # Create a batch script to replace running exe
+            bat_path = os.path.join(os.path.dirname(exe_path), "update.bat")
+            with open(bat_path, "w") as f:
+                f.write(f"""@echo off
+timeout /t 2
+move /y "{new_exe_path}" "{exe_path}"
+start "" "{exe_path}"
+exit
+""")
+            # Launch the updater and exit current exe
+            subprocess.Popen([bat_path], shell=True)
+            sys.exit()
+        else:
+            log_widget.insert(tk.END, "✅ Already up to date\n")
+            log_widget.see(tk.END)
+
+    except Exception as e:
+        log_widget.insert(tk.END, f"❌ Update check failed: {e}\n")
+        log_widget.see(tk.END)
+
 # ---------------- Animated Indicator ----------------
 class RunningIndicator(tk.Canvas):
     def __init__(self, parent, size=20):
@@ -397,4 +456,6 @@ footer.pack(fill=tk.X, side=tk.BOTTOM)
 # --- Show login first ---
 login_frame.lift()
 
+# Start auto-update check in background thread (non-blocking)
+threading.Thread(target=lambda: auto_update(log_area), daemon=True).start()
 root.mainloop()
