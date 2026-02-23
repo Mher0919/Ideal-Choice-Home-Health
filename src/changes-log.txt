@@ -1,0 +1,49 @@
+
+Run 02/18/2026 - 19:30:
+  [Jackson, Mercedes] Downloaded 2 PDF(s) for "OT Evaluation" on 01/13/2026 (not uploaded — non-standard visit): OT Evaluation-01-13-2026-Jackson, Mercedes-1.pdf, OT Evaluation-01-13-2026-Jackson, Mercedes-2.pdf
+
+Run 02/18/2026 - 20:05:
+  [Jackson, Mercedes] Downloaded 2 PDF(s) for "OT Evaluation" on 01/13/2026 (not uploaded — non-standard visit): OT Evaluation-01-13-2026-Jackson, Mercedes-1.pdf, OT Evaluation-01-13-2026-Jackson, Mercedes-2.pdf
+  [Aguilera, Daysi] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 01/30/2026: COTA Visit-01-30-2026-Aguilera, Daysi-1.pdf
+  [COUNTS-HESTER, SANDRA] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 02/04/2026: COTA Visit-02-04-2026-COUNTS-HESTER, SANDRA-1.pdf
+  [COUNTS-HESTER, SANDRA] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 02/06/2026: COTA Visit-02-06-2026-COUNTS-HESTER, SANDRA-1.pdf
+  [GARCIA, JULIA ESTHER] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 02/11/2026: COTA Visit-02-11-2026-GARCIA, JULIA ESTHER-1.pdf
+
+Run 02/18/2026 - 20:21:
+  [Jackson, Mercedes] Downloaded 2 PDF(s) for "OT Evaluation" on 01/13/2026 (not uploaded — non-standard visit): OT Evaluation-01-13-2026-Jackson, Mercedes-1.pdf, OT Evaluation-01-13-2026-Jackson, Mercedes-2.pdf
+
+Run 02/19/2026 - 18:13:
+  [Jackson, Mercedes] Downloaded 2 PDF(s) for "OT Evaluation" on 01/13/2026 (not uploaded — non-standard visit): OT Evaluation-01-13-2026-Jackson Mercedes-1.pdf, OT Evaluation-01-13-2026-Jackson Mercedes-2.pdf
+  [Jackson, Mercedes] Added new visit to Kinser: "PTA Visit" on 2/24/2026 (therapist: PATRIC BARNES (PTA))
+  [Aguilera, Daysi] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 01/30/2026: COTA Visit-01-30-2026-Aguilera Daysi-1.pdf
+  [Aguilera, Daysi] Downloaded + uploaded 1 PDF(s) for "PTA Visit" on 01/31/2026: PTA Visit-01-31-2026-Aguilera Daysi-1.pdf
+  [COUNTS-HESTER, SANDRA] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 02/04/2026: COTA Visit-02-04-2026-COUNTS-HESTER SANDRA-1.pdf
+  [COUNTS-HESTER, SANDRA] Downloaded + uploaded 1 PDF(s) for "PTA Visit" on 02/05/2026: PTA Visit-02-05-2026-COUNTS-HESTER SANDRA-1.pdf
+  [COUNTS-HESTER, SANDRA] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 02/06/2026: COTA Visit-02-06-2026-COUNTS-HESTER SANDRA-1.pdf
+  [COUNTS-HESTER, SANDRA] Added new visit to Kinser: "PTA Visit" on 2/20/2026 (therapist: KHALID STEVENS (PTA))
+  [GARCIA, JULIA ESTHER] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 02/11/2026: COTA Visit-02-11-2026-GARCIA JULIA ESTHER-1.pdf
+  [Hakim, Saeed] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 02/12/2026: COTA Visit-02-12-2026-Hakim Saeed-1.pdf
+  [KLINGER, CAROL J] Downloaded + uploaded 1 PDF(s) for "PTA Visit" on 02/06/2026: PTA Visit-02-06-2026-KLINGER CAROL J-1.pdf
+  [KLINGER, CAROL J] Downloaded + uploaded 1 PDF(s) for "PTA Visit" on 02/07/2026: PTA Visit-02-07-2026-KLINGER CAROL J-1.pdf
+  [KOVNER, RONNA] Downloaded 3 PDF(s) for "OT Evaluation" on 02/09/2026 (not uploaded — non-standard visit): OT Evaluation-02-09-2026-KOVNER RONNA-1.pdf, OT Evaluation-02-09-2026-KOVNER RONNA-2.pdf, OT Evaluation-02-09-2026-KOVNER RONNA-3.pdf
+  [KOVNER, RONNA] Downloaded + uploaded 1 PDF(s) for "PTA Visit" on 02/13/2026: PTA Visit-02-13-2026-KOVNER RONNA-1.pdf
+  [KOVNER, RONNA] Downloaded + uploaded 1 PDF(s) for "PTA Visit" on 02/16/2026: PTA Visit-02-16-2026-KOVNER RONNA-1.pdf
+  [MILLNER, ALTHEA] Downloaded + uploaded 1 PDF(s) for "PTA Visit" on 02/11/2026: PTA Visit-02-11-2026-MILLNER ALTHEA-1.pdf
+  [Powell, Sandra F] Downloaded + uploaded 1 PDF(s) for "PTA Visit" on 02/04/2026: PTA Visit-02-04-2026-Powell Sandra F-1.pdf
+  [Reese, Kevin] Downloaded 1 PDF(s) for "OT Evaluation" on 01/31/2026 (not uploaded — non-standard visit): OT Evaluation-01-31-2026-Reese Kevin-1.pdf
+  [Reese, Kevin] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 02/14/2026: COTA Visit-02-14-2026-Reese Kevin-1.pdf
+
+Run 02/22/2026 - 23:18:
+  (no changes this run)
+
+Run 02/22/2026 - 23:19:
+  [Jackson, Mercedes] Downloaded 2 PDF(s) for "OT Evaluation" on 01/13/2026 (not uploaded — non-standard visit): OT Evaluation-01-13-2026-Jackson Mercedes-1.pdf, OT Evaluation-01-13-2026-Jackson Mercedes-2.pdf
+  [Aguilera, Daysi] Downloaded 1 PDF(s) for "COTA Visit" on 01/30/2026 (not uploaded — missed visit): COTA Visit-01-30-2026-Aguilera Daysi-1.pdf
+  [Aguilera, Daysi] Downloaded 1 PDF(s) for "PTA Visit" on 01/31/2026 (not uploaded — missed visit): PTA Visit-01-31-2026-Aguilera Daysi-1.pdf
+  [COUNTS-HESTER, SANDRA] Downloaded 1 PDF(s) for "COTA Visit" on 02/04/2026 (not uploaded — missed visit): COTA Visit-02-04-2026-COUNTS-HESTER SANDRA-1.pdf
+  [COUNTS-HESTER, SANDRA] Downloaded 1 PDF(s) for "PTA Visit" on 02/05/2026 (not uploaded — missed visit): PTA Visit-02-05-2026-COUNTS-HESTER SANDRA-1.pdf
+  [COUNTS-HESTER, SANDRA] Downloaded 1 PDF(s) for "COTA Visit" on 02/06/2026 (not uploaded — missed visit): COTA Visit-02-06-2026-COUNTS-HESTER SANDRA-1.pdf
+  [COUNTS-HESTER, SANDRA] Downloaded + uploaded 1 PDF(s) for "COTA Visit" on 02/10/2026: COTA Visit-02-10-2026-COUNTS-HESTER SANDRA-1.pdf
+
+Run #7 — 02/22/2026 - 23:49:
+  [Jackson, Mercedes] Downloaded 2 PDF(s) for "OT Evaluation" on 01/13/2026 (not uploaded — non-standard visit): OT Evaluation-01-13-2026-Jackson Mercedes-1.pdf, OT Evaluation-01-13-2026-Jackson Mercedes-2.pdf

@@ -1,221 +1,44 @@
 // siteB.actions.ts
 import { Page } from 'playwright';
-import { Visit } from './siteA.actions';
+import { Visit, isSOC, isDischarge } from './siteA.actions';
 import path from 'path';
 import fs from 'fs';
 
 const PATIENT_FILES_DIR = path.join(__dirname, 'patient-files');
-
-export async function openPatientsList(pageB: Page) {
-  console.log('Opening Patients list in Site B');
-
-  // STEP 1 — Open top menu
-  await pageB
-    .locator('a.menu-anchor.primary-menu')
-    .waitFor({ state: 'visible', timeout: 10000 });
-
-  await pageB.locator('a.menu-anchor.primary-menu').click();
-
-  // STEP 2 — Click first "Patients" (icon menu)
-  await pageB
-    .locator('a.icon-patients.icon')
-    .waitFor({ state: 'visible', timeout: 10000 });
-
-  await pageB.locator('a.icon-patients.icon').click();
-
-  // STEP 3 — Click second "Patients" (submenu)
-  const patientsLinks = pageB.locator(
-    'a[href^="/Patient/PatientSearch"]'
-  );
-
-  await patientsLinks.nth(1).waitFor({ state: 'visible', timeout: 10000 });
-  await patientsLinks.nth(1).click();
-
-  // STEP 4 — Wait for patient table/page
-  await pageB.waitForLoadState('networkidle');
-
-  console.log('Patients list opened successfully');
-}
-
-export async function getPatientNames(pageB: Page): Promise<string[]> {
-  await pageB.locator('#PatientsTable').waitFor({ state: 'visible' });
-
-  const rows = pageB.locator('#PatientsTable tbody tr');
-  const count = await rows.count();
-
-  const names: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const name = (await rows.nth(i)
-      .locator('td.sorting_1 a.link-Color')
-      .innerText()).trim();
-    names.push(name);
-  }
-  return names;
-}
-
-/* -------------------- SCHEDULE RESOLUTION -------------------- */
-
-export type ScheduleResult = 'SCHEDULED' | 'INCOMPLETE' | 'VIEW_DOCUMENT' | 'NOT_FOUND';
-
-export async function resolveScheduleForVisit(
-  pageB: Page,
-  visit: { taskName: string; visitDate: string }
-): Promise<'SCHEDULED' | 'INCOMPLETE' | 'VIEW_DOCUMENT' | 'NOT_FOUND'> {
-
-  // Locate the row for this visit
-  const visitRow = pageB.locator('tr', {
-    hasText: visit.taskName
-  }).filter({
-    hasText: visit.visitDate
-  });
-
-  if (!(await visitRow.count())) {
-    return 'NOT_FOUND';
-  }
-
-  // 🔎 Look for status span inside that row
-  const statusSpan = visitRow.locator('span');
-
-  if (!(await statusSpan.count())) {
-    return 'NOT_FOUND';
-  }
-
-  const rawStatus = (await statusSpan.first().innerText()).trim().toLowerCase();
-
-  console.log(`🔎 Status detected for ${visit.taskName}: "${rawStatus}"`);
-
-  if (rawStatus.includes('scheduled')) {
-    return 'SCHEDULED';
-  }
-
-  if (rawStatus.includes('incomplete')) {
-    return 'INCOMPLETE';
-  }
-
-  if (rawStatus.includes('view')) {
-    return 'VIEW_DOCUMENT';
-  }
-
-  return 'NOT_FOUND';
-}
-
-/**
- * Get the schedule status for a specific visit
- */
-export async function getScheduleStatus(
-  pageB: Page,
-  discipline: string,
-  visitType: string,
-  visitDate: string
-) {
-  // Find the row with matching discipline + type + date
-  const row = pageB.locator(`.record-visititem[data-discipline="${discipline}"]`);
-  const status = await row.locator('span').first().innerText(); // SCHEDULED / INCOMPLETE / VIEW DOCUMENT
-  return { row, status };
-}
-
-/**
- * Get time in/out and date for a schedule in Site B
- */
-export async function getVisitTimes(pageB: Page, row: any) {
-  const timeIn = await row.locator('.record-visit-date').first().innerText(); // e.g., "2/3/2026 1PM"
-  const timeOut = await row.locator('.record-visit-date').nth(1).innerText(); // adjust if needed
-  const visitDate = await row.locator('.record-visit-date').first().innerText();
-
-  return { visitDate, timeIn, timeOut };
-}
-
-/**
- * Process all documents for Standard Visits (download PDFs)
- */
 if (!fs.existsSync(PATIENT_FILES_DIR)) fs.mkdirSync(PATIENT_FILES_DIR);
 
-export async function downloadVisitFiles(
-  pageB: Page,
-  visitName: string,
-  visitDate: string,
-  patientName: string
-): Promise<string[]> {
-  const downloadedFiles: string[] = [];
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // Normalize file name parts
-  const safeVisitName = visitName.replace(/[\/\\:*?"<>|]/g, '');
-  const safePatientName = patientName.replace(/[\/\\:*?"<>|]/g, '');
-  const safeFileBase = `${visitDate}-${safeVisitName}-${safePatientName}`;
+const normalize = (s: string) =>
+  s.replace(/\s+/g, ' ').replace(/\u00A0/g, ' ').trim().toLowerCase();
 
-  // Wait for notes section
-  await pageB.waitForSelector('#VisitDetailNotes', { timeout: 5000 });
-
-  const noteItems = pageB.locator('#VisitDetailNotes .divNoteItem');
-  const noteCount = await noteItems.count();
-
-  for (let i = 0; i < noteCount; i++) {
-    const note = noteItems.nth(i);
-
-    // Check if there is a View button
-    const viewButton = note.locator('button.green-button.uppercase');
-    if ((await viewButton.count()) === 0) continue;
-
-    // Click the View button (opens printable PDF)
-    const [newPage] = await Promise.all([
-      pageB.context().waitForEvent('page'),
-      viewButton.click(),
-    ]);
-
-    await newPage.waitForLoadState('load');
-
-    // Build PDF path
-    const pdfPath = path.join(PATIENT_FILES_DIR, `${safeFileBase}-${i + 1}.pdf`);
-
-    // Save page as PDF
-    await newPage.pdf({ path: pdfPath, format: 'A4' });
-    downloadedFiles.push(pdfPath);
-
-    console.log(`✅ Downloaded PDF: ${pdfPath}`);
-    await newPage.close();
-  }
-
-  if (downloadedFiles.length === 0) {
-    console.log(`ℹ No PDFs found for visit: ${visitName}`);
-  }
-
-  return downloadedFiles;
+function normalizeDateToISO(date: string): string {
+  // Accepts "2/17/2026" or "02/17/2026" → "2026-02-17"
+  const parts = date.split('/');
+  if (parts.length !== 3) return date;
+  const [m, d, y] = parts.map(Number);
+  return `${y}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
 }
 
 /**
- * Process documents for non-Standard visits (print to printer)
+ * Build a normalized dedup key from taskName + date only (no therapist —
+ * therapist strings differ too much between sites to be reliable).
+ * e.g. "pta visit|2026-02-17"
  */
-export async function printOtherDocuments(pageB: Page) {
-  const docButtons = pageB.locator('.divNoteItem button:has-text("View")');
-  const count = await docButtons.count();
-
-  for (let i = 0; i < count; i++) {
-    await docButtons.nth(i).click();
-    console.log('Sent document to printer (manual action required if needed)');
-    await pageB.goBack();
-  }
+export function normalizeVisitKey(taskName: string, visitDate: string): string {
+  return `${normalize(taskName)}|${normalizeDateToISO(visitDate)}`;
 }
 
-export interface ScheduleTimes {
-    timeIn: string;
-    timeOut: string;
-    documents: string[]; // paths of PDFs downloaded
-}
-/**
- * Normalize dates to MM/DD/YYYY string
- */
 function normalizeDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr; // fallback
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  const day = d.getDate().toString().padStart(2, '0');
-  const year = d.getFullYear();
-  return `${month}/${day}/${year}`;
+  // "2/3/2026" → "2/3/2026" (strips leading zeros from month/day)
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return dateStr;
+  const [month, day, year] = parts;
+  return `${parseInt(month)}/${parseInt(day)}/${year}`;
 }
 
-/**
- * Convert AM/PM time string to 24h format HH:mm
- */
 function convertTo24h(time: string): string {
   const match = time.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i);
   if (!match) return '00:00';
@@ -227,53 +50,167 @@ function convertTo24h(time: string): string {
   return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
 }
 
-function normalizeDateToISO(date: string): string {
-  const [m, d, y] = date.split('/').map(Number);
-  return `${y}-${m.toString().padStart(2, '0')}-${d
-    .toString()
-    .padStart(2, '0')}`;
+// ─────────────────────────────────────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function openPatientsList(pageB: Page) {
+  console.log('Opening Patients list in Site B');
+
+  await pageB.locator('a.menu-anchor.primary-menu').waitFor({ state: 'visible', timeout: 10000 });
+  await pageB.locator('a.menu-anchor.primary-menu').click();
+
+  await pageB.locator('a.icon-patients.icon').waitFor({ state: 'visible', timeout: 10000 });
+  await pageB.locator('a.icon-patients.icon').click();
+
+  const patientsLinks = pageB.locator('a[href^="/Patient/PatientSearch"]');
+  await patientsLinks.nth(1).waitFor({ state: 'visible', timeout: 10000 });
+  await patientsLinks.nth(1).click();
+
+  await pageB.waitForLoadState('networkidle');
+  console.log('Patients list opened successfully');
 }
-/**
- * Find and click the exact visit in Site B schedule, return the times and document links
- */
 
-export const VISIT_TYPE_MAP: Record<string, string[]> = {
-  'OT Evaluation': ['initial eval'],
-  'PT Evaluation': ['initial eval'],
-  'ST Evaluation': ['initial eval'],
+export async function getPatientNames(pageB: Page): Promise<string[]> {
+  await pageB.locator('#PatientsTable').waitFor({ state: 'visible' });
 
-  'PT Re-Evaluation': ['reassessment'],
-  'OT Re-Evaluation': ['reassessment'],
+  const rows = pageB.locator('#PatientsTable tbody tr');
+  const count = await rows.count();
 
-  'COTA Visit': ['standard'],
-  'PTA Visit': ['standard'],
-  'OT Visit': ['standard'],
-  'PT Visit': ['standard'],
-};
+  const names: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const name = (
+      await rows.nth(i).locator('td.sorting_1 a.link-Color').innerText()
+    ).trim();
+    names.push(name);
+  }
+  return names;
+}
 
-export async function openVisitInSchedule(
-  pageB: Page,
-  visitName: string,
-  visitDate: string,
-  therapist?: string
-) {
-  console.log(`Looking for "${visitName}" on ${visitDate}`);
+export async function waitForScheduleList(page: Page) {
+  const hasRows = async (timeout: number) => {
+    await page.waitForFunction(() => {
+      const rows = document.querySelectorAll('.record-visititem:not(.placeholder)');
+      return Array.from(rows).some((r) => (r as HTMLElement).innerText?.trim().length > 0);
+    }, { timeout });
+  };
 
-  if (!visitDate || visitName.toLowerCase().startsWith('del')) {
-    throw new Error(`Skipped invalid visit: ${visitName}`);
+  try {
+    await page.locator('.record-visititem:not(.placeholder)').first().waitFor({ state: 'visible', timeout: 15000 });
+    await hasRows(15000);
+  } catch {
+    console.log('ℹ Schedule table not ready — navigating back and retrying');
+    try {
+      await page.goBack();
+      await page.waitForLoadState('networkidle');
+      await hasRows(15000);
+    } catch {
+      // Both attempts failed — throw a catchable error so the patient loop can skip gracefully
+      throw new Error('SKIP:schedule_list_unavailable');
+    }
   }
 
-  const normalize = (s: string) =>
-    s.replace(/\s+/g, ' ').trim().toLowerCase();
+  console.log('✅ Schedule table fully loaded');
+}
 
-  const expectedDate = normalizeDateToISO(visitDate);
+// ─────────────────────────────────────────────────────────────────────────────
+// VISIT TYPE MAPPING
+//
+// Site A task name  →  Site B visititem-type text + discipline
+//
+// The key insight from the HTML:
+//   - "PTA Visit" in Site A  →  type="Standard"  discipline="PT"
+//   - "COTA Visit" in Site A →  type="Standard"  discipline="OT"
+//   - "OT Visit" in Site A   →  type="Standard"  discipline="OT"
+//   - "PT Visit" in Site A   →  type="Standard"  discipline="PT"
+//   - "Initial Eval" / "OT Evaluation" etc  →  type varies by discipline
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // --- Map taskName to expected types ---
-  const expectedTypes = VISIT_TYPE_MAP[visitName] || [visitName.toLowerCase()];
+interface VisitTypeMapping {
+  siteBType: string;       // matches .visititem-type text (lowercased)
+  discipline: string | null; // matches data-discipline attr (lowercased), null = any
+}
 
-  await pageB.waitForSelector('.record-visititem:not(.placeholder)', {
-    timeout: 15000,
-  });
+const SITE_A_TO_SITE_B: Record<string, VisitTypeMapping> = {
+  // Standard visits
+  'pt visit':        { siteBType: 'standard', discipline: 'pt' },
+  'pta visit':       { siteBType: 'standard', discipline: 'pt' },
+  'ot visit':        { siteBType: 'standard', discipline: 'ot' },
+  'cota visit':      { siteBType: 'standard', discipline: 'ot' },
+  'st visit':        { siteBType: 'standard', discipline: 'st' },
+  'standard':        { siteBType: 'standard', discipline: null },
+
+  // Evaluations
+  'pt evaluation':   { siteBType: 'initial eval', discipline: 'pt' },
+  'ot evaluation':   { siteBType: 'initial eval', discipline: 'ot' },
+  'st evaluation':   { siteBType: 'initial eval', discipline: 'st' },
+  'initial eval':    { siteBType: 'initial eval', discipline: null },
+  'evaluation':      { siteBType: 'initial eval', discipline: null },
+
+  // Re-evaluations / Reassessments
+  'pt re-evaluation':   { siteBType: 'reassessment', discipline: 'pt' },
+  'ot re-evaluation':   { siteBType: 'reassessment', discipline: 'ot' },
+  're-evaluation':      { siteBType: 'reassessment', discipline: null },
+  'reassessment':       { siteBType: 'reassessment', discipline: null },
+
+  // Discharge
+  'discharge':          { siteBType: 'dc oasis', discipline: null },
+  'dc oasis':           { siteBType: 'dc oasis', discipline: null },
+
+  // Recert
+  'recertification':    { siteBType: 'recertification', discipline: null },
+};
+
+function getSiteBMapping(siteATaskName: string): VisitTypeMapping | null {
+  const key = normalize(siteATaskName);
+  return SITE_A_TO_SITE_B[key] ?? null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VISIT STATUS RESOLUTION
+//
+// The HTML structure is:
+//   <div class="record-visititem" data-discipline="PT">
+//     <a href="/Visit/VisitDetail/...">
+//       <span class="visititem-type">Standard</span>
+//       <span class="record-visit-date">2/17/2026</span>
+//       <span class="small-font">2:30 PM</span>
+//       <span class="underline ">Incomplete</span>   ← status is HERE
+//     </a>
+//   </div>
+//
+// NOT inside a <tr>. The old code used pageB.locator('tr', ...) — that's why
+// it always returned NOT_FOUND.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ScheduleResult = 'SCHEDULED' | 'INCOMPLETE' | 'VIEW_DOCUMENT' | 'NOT_FOUND';
+
+/**
+ * Find the Site B visit card that matches taskName + visitDate and return its
+ * schedule status span text.
+ *
+ * taskName here is the Site B visititem-type text (e.g. "Standard", "SOC OASIS").
+ * visitDate is MM/DD/YYYY or M/D/YYYY.
+ */
+export async function resolveScheduleForVisit(
+  pageB: Page,
+  visit: { taskName: string; visitDate: string }
+): Promise<ScheduleResult> {
+
+  // Skip discharge visits entirely
+  if (isDischarge(visit.taskName)) {
+    console.log(`  ⏭ resolveScheduleForVisit: skipping Discharge — "${visit.taskName}"`);
+    return 'NOT_FOUND';
+  }
+
+  const expectedDate = normalizeDate(visit.visitDate);
+
+  // Translate Site A task name to Site B type + discipline, same as openVisitInSchedule
+  const mapping            = getSiteBMapping(visit.taskName);
+  const expectedType       = mapping?.siteBType ?? normalize(visit.taskName);
+  const expectedDiscipline = mapping?.discipline ?? null;
+
+  console.log(`  resolveSchedule: looking for type="${expectedType}" discipline="${expectedDiscipline ?? 'any'}" date="${expectedDate}"`);
 
   const items = pageB.locator('.record-visititem:not(.placeholder)');
   const count = await items.count();
@@ -281,103 +218,225 @@ export async function openVisitInSchedule(
   for (let i = 0; i < count; i++) {
     const item = items.nth(i);
 
-    const visitType = normalize(
-      await item.locator('.visititem-type').innerText()
-    );
+    // Visit type
+    const typeEl = item.locator('.visititem-type');
+    if (!(await typeEl.count())) continue;
+    const itemType = normalize(await typeEl.innerText());
 
-    const rawDate = await item.locator('.record-visit-date').innerText();
-    const visitDateISO = normalizeDateToISO(rawDate);
+    // Date
+    const dateEl = item.locator('span.record-visit-date');
+    if (!(await dateEl.count())) continue;
+    const itemDate = normalizeDate((await dateEl.first().innerText()).trim());
 
-    const discipline = normalize(await item.getAttribute('data-discipline') || '');
+    if (itemType !== expectedType || itemDate !== expectedDate) continue;
 
-    // ---- Matching ----
-    if (visitDateISO !== expectedDate) continue;
-
-    if (!expectedTypes.includes(visitType)) continue; // <-- allow initial/reassessment/standard
-
-    const expectedDiscipline =
-      visitName.toLowerCase().includes('cota') ? 'ot'
-      : visitName.toLowerCase().includes('pta') ? 'pt'
-      : null;
-
-    if (expectedDiscipline && discipline !== expectedDiscipline) continue;
-
-    console.log('✅ MATCH FOUND');
-
-    await item.locator('a[href*="/Visit/VisitDetail"]').click();
-    await pageB.waitForLoadState('networkidle');
-
-    const times = await pageB
-      .locator('.small-font.cursor-pointer')
-      .allInnerTexts();
-
-    let timeIn = '';
-    let timeOut = '';
-
-    if (times.length === 1 && !times[0].includes('No Scheduled')) {
-      timeIn = timeOut = times[0];
+    // Discipline check - distinguishes PT Standard from OT Standard etc.
+    if (expectedDiscipline) {
+      const discipline = normalize(await item.getAttribute('data-discipline') ?? '');
+      if (discipline !== expectedDiscipline) continue;
     }
 
-    return { timeIn, timeOut, documents: [] };
+    // Status span — last span with class "underline" (or "link-Color underline")
+    // Could also be a span without "underline" class (e.g. "View Documents" uses link-Color)
+    const statusEl = item.locator('a span.underline, a span.link-Color.underline');
+    if (!(await statusEl.count())) {
+      console.log(`  ⚠ No status span found for ${visit.taskName} ${visit.visitDate}`);
+      return 'NOT_FOUND';
+    }
+
+    const rawStatus = normalize(await statusEl.first().innerText());
+    console.log(`🔎 Status for "${visit.taskName}" ${visit.visitDate}: "${rawStatus}"`);
+
+    if (rawStatus.includes('scheduled')) return 'SCHEDULED';
+    if (rawStatus.includes('incomplete')) return 'INCOMPLETE';
+    if (rawStatus.includes('view')) return 'VIEW_DOCUMENT';
+
+    return 'NOT_FOUND';
   }
 
-  throw new Error(`Visit not found: ${visitName} ${visitDate}`);
+  console.log(`  ⚠ Visit card not found for ${visit.taskName} ${visit.visitDate}`);
+  return 'NOT_FOUND';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OPEN VISIT IN SITE B SCHEDULE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ScheduleTimes {
+  timeIn: string;
+  timeOut: string;
+  documents: string[];
+  siteBStatus: string;   // raw status text from Site B, e.g. "missed (completed)", "incomplete"
+}
+
+/**
+ * Find a visit card in Site B by Site A task name + date, click it,
+ * wait for the detail page, then return timeIn/timeOut.
+ */
+export async function openVisitInSchedule(
+  pageB: Page,
+  siteAVisitName: string,   // e.g. "PTA Visit", "COTA Visit", "OT Evaluation"
+  visitDate: string,         // MM/DD/YYYY
+  therapist?: string
+): Promise<ScheduleTimes> {
+
+  console.log(`Looking for "${siteAVisitName}" on ${visitDate}`);
+
+  if (!visitDate || siteAVisitName.toLowerCase().startsWith('del')) {
+    throw new Error(`Skipped invalid visit: ${siteAVisitName}`);
+  }
+
+  const mapping = getSiteBMapping(siteAVisitName);
+  const expectedType  = mapping?.siteBType ?? normalize(siteAVisitName);
+  const expectedDiscipline = mapping?.discipline ?? null;
+  const expectedDate = normalizeDate(visitDate);
+
+  console.log(`  Mapped to Site B type="${expectedType}" discipline="${expectedDiscipline ?? 'any'}"`);
+
+  await pageB.waitForSelector('.record-visititem:not(.placeholder)', { timeout: 15000 });
+
+  const items = pageB.locator('.record-visititem:not(.placeholder)');
+  const count = await items.count();
+
+  for (let i = 0; i < count; i++) {
+    const item = items.nth(i);
+
+    // ── Type ────────────────────────────────────────────────────────────────
+    const typeEl = item.locator('.visititem-type');
+    if (!(await typeEl.count())) continue;
+    const itemType = normalize(await typeEl.innerText());
+    if (itemType !== expectedType) continue;
+
+    // ── Date ────────────────────────────────────────────────────────────────
+    const dateEl = item.locator('span.record-visit-date');
+    if (!(await dateEl.count())) continue;
+    const itemDate = normalizeDate((await dateEl.first().innerText()).trim());
+    if (itemDate !== expectedDate) continue;
+
+    // ── Discipline ──────────────────────────────────────────────────────────
+    if (expectedDiscipline) {
+      const discipline = normalize(await item.getAttribute('data-discipline') ?? '');
+      if (discipline !== expectedDiscipline) continue;
+    }
+
+    // ── Therapist (optional) ────────────────────────────────────────────────
+    if (therapist) {
+      const therapistText = normalize(
+        await item.locator('.record-visit-therapists').innerText()
+      );
+      // Partial match: "j. diaz" should match "jessica diaz (pta)"
+      const therapistKey = normalize(therapist).replace(/\s*\(.*\)/, '');
+      if (!therapistText.includes(therapistKey.split(' ').pop() ?? '')) {
+        // Only warn — don't skip if last name matches
+        console.log(`  ⚠ Therapist partial mismatch: expected "${therapist}", found "${therapistText}"`);
+      }
+    }
+
+    console.log(`✅ MATCH FOUND: type="${itemType}" date="${itemDate}" discipline="${await item.getAttribute('data-discipline')}"`);
+
+    // ── Capture status before clicking ──────────────────────────────────────
+    const statusEl = item.locator('a span.underline, a span.link-Color.underline');
+    const siteBStatus = (await statusEl.count())
+      ? normalize(await statusEl.first().innerText())
+      : '';
+
+    // ── Check for "No Scheduled Time" before clicking ────────────────────────
+    const timeSpan = item.locator('span.small-font');
+    if (await timeSpan.count()) {
+      const timeText = normalize(await timeSpan.innerText());
+      if (timeText.includes('no scheduled')) {
+        throw new Error(`SKIP:no_scheduled_time — ${siteAVisitName} ${visitDate}`);
+      }
+    }
+
+    // ── Click the visit detail link ──────────────────────────────────────────
+    const link = item.locator('a[href*="/Visit/VisitDetail"]');
+    await link.click();
+    await pageB.waitForLoadState('networkidle');
+
+    // ── Grab scheduled time from detail page ────────────────────────────────
+    const { visitDate: detailDate, timeIn, timeOut } = await getVisitDateAndTimesFromSiteB(pageB);
+
+    console.log(`  ↳ Time In: ${timeIn} | Time Out: ${timeOut} | Date: ${detailDate}`);
+
+    return { timeIn, timeOut, documents: [], siteBStatus };
+  }
+
+  // ── Debug dump on failure ────────────────────────────────────────────────
+  console.log(`❌ Visit not found in Site B: "${siteAVisitName}" on ${visitDate}`);
+  console.log(`   Expected type="${expectedType}" discipline="${expectedDiscipline}" date="${expectedDate}"`);
+
+  for (let i = 0; i < count; i++) {
+    const item = items.nth(i);
+    const typeEl = item.locator('.visititem-type');
+    const dateEl = item.locator('span.record-visit-date');
+    const discipline = await item.getAttribute('data-discipline');
+    const t = (await typeEl.count()) ? normalize(await typeEl.innerText()) : '(no type)';
+    const d = (await dateEl.count()) ? normalizeDate((await dateEl.first().innerText()).trim()) : '(no date)';
+    console.log(`   Row ${i}: type="${t}" date="${d}" discipline="${discipline}"`);
+  }
+
+  throw new Error(`Visit not found in Site B: ${siteAVisitName} ${visitDate}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXTRACT TIMES FROM VISIT DETAIL PAGE
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function getVisitDateAndTimesFromSiteB(pageB: Page) {
-  const timeInHour = await pageB.locator('#HourIn').inputValue();
-  const timeInMin = await pageB.locator('#MinuteIn').inputValue();
-  const timeInAmPm = await pageB.locator('#AmPmIn').inputValue();
+  // Try structured input fields first (edit mode).
+  // Use select[id="HourIn"] to avoid strict-mode collision with the hidden input.
+  const hourInCount = await pageB.locator('select#HourIn').count();
 
-  const timeOutHour = await pageB.locator('#HourOut').inputValue();
-  const timeOutMin = await pageB.locator('#MinuteOut').inputValue();
-  const timeOutAmPm = await pageB.locator('#AmPmOut').inputValue();
+  if (hourInCount > 0) {
+    const timeInHour  = await pageB.locator('select#HourIn').inputValue();
+    const timeInMin   = await pageB.locator('select#MinuteIn').inputValue();
+    const timeInAmPm  = await pageB.locator('select#AmPmIn').inputValue();
+    const timeOutHour = await pageB.locator('select#HourOut').inputValue();
+    const timeOutMin  = await pageB.locator('select#MinuteOut').inputValue();
+    const timeOutAmPm = await pageB.locator('select#AmPmOut').inputValue();
 
-  const visitDate = (
-    await pageB.locator('.form-input-wrapper label')
-      .filter({ hasText: '/' })
-      .last()
-      .innerText()
-  ).trim(); // e.g. 1/13/2026
+    const visitDate = (
+      await pageB.locator('.form-input-wrapper label')
+        .filter({ hasText: '/' })
+        .last()
+        .innerText()
+    ).trim();
 
-  const timeIn = `${timeInHour}:${timeInMin} ${timeInAmPm}`;
-  const timeOut = `${timeOutHour}:${timeOutMin} ${timeOutAmPm}`;
+    return {
+      visitDate,
+      timeIn:  `${timeInHour}:${timeInMin} ${timeInAmPm}`,
+      timeOut: `${timeOutHour}:${timeOutMin} ${timeOutAmPm}`,
+    };
+  }
+
+  // Fallback: read the display text from the schedule card
+  // e.g. <span class="small-font cursor-pointer">2:30 PM</span>
+  const timeSpans = await pageB.locator('.small-font.cursor-pointer').allInnerTexts();
+  const validTimes = timeSpans.filter(
+    (t) => /\d+:\d+\s*(AM|PM)/i.test(t) || /\d+\s*(AM|PM)/i.test(t)
+  );
+
+  const timeIn  = validTimes[0] ?? '';
+  const timeOut = validTimes[1] ?? validTimes[0] ?? '';
+
+  // Date: look for a span that contains a date pattern
+  const dateSpans = await pageB.locator('span.record-visit-date').allInnerTexts();
+  const visitDate = dateSpans[0]?.trim() ?? '';
 
   return { visitDate, timeIn, timeOut };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET ALL SITE B VISITS FOR A PATIENT (used for missing-visit detection)
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Helper
-function normalizeText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
-export async function waitForScheduleList(page: Page) {
-  const scheduleRows = page.locator('.record-visititem:not(.placeholder)');
-
-  try {
-    // Wait for at least one visible row with text content
-    await scheduleRows.first().waitFor({ state: 'visible', timeout: 15000 });
-    await page.waitForFunction(() => {
-      const rows = document.querySelectorAll('.record-visititem:not(.placeholder)');
-      return Array.from(rows).some(r => r.textContent?.trim().length > 0);
-    }, { timeout: 15000 });
-  } catch {
-    console.log('ℹ Schedule table not ready — navigating back and retrying');
-    await page.goBack();  // go back to schedule list
-    await page.waitForFunction(() => {
-      const rows = document.querySelectorAll('.record-visititem:not(.placeholder)');
-      return Array.from(rows).some(r => r.textContent?.trim().length > 0);
-    }, { timeout: 15000 });
-  }
-
-  console.log('✅ Schedule table fully loaded');
-}
-
-export async function getSiteBVisitsForPatient(pageB: Page, patientName: string): Promise<Visit[]> {
+export async function getSiteBVisitsForPatient(
+  pageB: Page,
+  patientName: string
+): Promise<Visit[]> {
   console.log(`📄 Fetching Site B visits for patient: ${patientName}`);
 
-  // Wait for schedule items to load
   await pageB.waitForSelector('.record-visititem:not(.placeholder)', { timeout: 10000 });
 
   const items = pageB.locator('.record-visititem:not(.placeholder)');
@@ -388,43 +447,251 @@ export async function getSiteBVisitsForPatient(pageB: Page, patientName: string)
   for (let i = 0; i < count; i++) {
     const item = items.nth(i);
 
-    // Visit type / task name
-    const typeText = (await item.locator('.visititem-type').innerText()).trim();
+    // Visit type
+    const typeEl = item.locator('.visititem-type');
+    if (!(await typeEl.count())) continue;
+    const typeText = (await typeEl.innerText()).trim();
 
-    // Therapist
-    const therapistText = (await item.locator('.record-visit-therapists').innerText()).trim();
+    // Skip SOC and Discharge visits
+    if (isSOC(typeText) || isDischarge(typeText)) {
+      console.log(`  Site B row ${i}: skipped (SOC or Discharge) — "${typeText}"`);
+      continue;
+    }
 
-    // Date
-    const rawDate = (await item.locator('.record-visit-date').innerText()).trim(); // e.g., "2/15/2026"
-    const visitDate = rawDate; // keep MM/DD/YYYY
+    // Discipline
+    const discipline = (await item.getAttribute('data-discipline') ?? '').toUpperCase();
 
-    // Determine standard type mapping
+    // Therapist — inside .record-visit-therapists
+    const therapistEl = item.locator('.record-visit-therapists');
+    const therapistText = (await therapistEl.count())
+      ? (await therapistEl.innerText()).trim()
+      : 'Unknown';
+
+    // Date — span.record-visit-date (NOT small-font which is time)
+    const dateEl = item.locator('span.record-visit-date');
+    if (!(await dateEl.count())) continue;
+    const visitDate = normalizeDate((await dateEl.first().innerText()).trim());
+
+    // Status + time
+    const statusEl = item.locator('a span.underline, a span.link-Color.underline');
+    const statusText = (await statusEl.count())
+      ? normalize(await statusEl.first().innerText())
+      : '';
+
+    // Time span — "No Scheduled Time" means skip entirely
+    const timeEl = item.locator('span.small-font');
+    const timeText = (await timeEl.count())
+      ? normalize(await timeEl.innerText())
+      : '';
+
+    if (timeText.includes('no scheduled')) {
+      console.log(`  Site B row ${i}: skipped (no scheduled time) — "${typeText}" ${visitDate}`);
+      continue;
+    }
+
+    // Map Site B type → Site A equivalents
     let actualVisitType = 'Standard';
-    if (/initial eval/i.test(typeText)) actualVisitType = 'Evaluation';
-    else if (/reassessment/i.test(typeText)) actualVisitType = 'Reassessment';
-    else if (/discharge/i.test(typeText)) actualVisitType = 'Discharge';
-    else if (/recert/i.test(typeText)) actualVisitType = 'Recertification';
-    else if (/cota/i.test(typeText)) actualVisitType = 'COTA';
+    let siteBVisitName  = typeText;
 
-    // Map to Site B visit name
-    let siteBVisitName = typeText;
-    if (/standard/i.test(typeText)) siteBVisitName = 'Visit';
-    else if (/initial eval/i.test(typeText)) siteBVisitName = 'Evaluation';
-    else if (/reassessment/i.test(typeText)) siteBVisitName = 'Re-Evaluation';
-    else if (/cota/i.test(typeText)) siteBVisitName = 'COTA Visit';
+    const typeNorm = normalize(typeText);
+    if (/initial eval/i.test(typeNorm))      actualVisitType = 'Evaluation';
+    else if (/reassessment/i.test(typeNorm)) actualVisitType = 'Reassessment';
+    else if (/discharge|dc oasis/i.test(typeNorm)) actualVisitType = 'Discharge';
+    else if (/recert/i.test(typeNorm))       actualVisitType = 'Recertification';
+    else if (/soc/i.test(typeNorm))          actualVisitType = 'SOC';
+
+    // Derive a Site-A-style task name from type + discipline
+    // e.g. Standard + PT → "PTA Visit", Standard + OT → "COTA Visit"
+    if (/standard/i.test(typeNorm)) {
+      if (discipline === 'PT')      siteBVisitName = 'PTA Visit';
+      else if (discipline === 'OT') siteBVisitName = 'COTA Visit';
+      else if (discipline === 'ST') siteBVisitName = 'ST Visit';
+      else                          siteBVisitName = 'Standard';
+    } else if (/initial eval/i.test(typeNorm)) {
+      siteBVisitName = `${discipline} Evaluation`;
+    } else if (/reassessment/i.test(typeNorm)) {
+      siteBVisitName = `${discipline} Re-Evaluation`;
+    }
+
+    console.log(
+      `  Site B row ${i}: type="${typeText}" discipline="${discipline}" date="${visitDate}" status="${statusText}" therapist="${therapistText}"`
+    );
 
     visits.push({
-      taskName: typeText,
-      therapist: therapistText || 'Unknown',
+      taskName:       siteBVisitName,
+      therapist:      therapistText,
       visitDate,
-      targetDate: visitDate,
-      siteBVisitName,
-      rowIndex: i,
-      needsAction: true,
-      actualVisitType
+      targetDate:     visitDate,
+      siteBVisitName: typeText,   // keep the raw Site B type for matching
+      rowIndex:       i,
+      needsAction:    statusText !== 'view documents',  // already complete if "View Documents"
+      actualVisitType,
     });
   }
 
   console.log(`✅ Found ${visits.length} visit(s) in Site B for patient ${patientName}`);
   return visits;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOCUMENT DOWNLOAD
+//
+// Filename format: visitName-date-patientName-N.pdf
+// Skips any file that already exists in patient-files/.
+// Uses the ViewNote onclick URL directly to navigate to the printable page.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function downloadVisitFiles(
+  pageB: Page,
+  visitName: string,   // e.g. "PTA Visit"
+  visitDate: string,   // e.g. "02/17/2026"
+  patientName: string  // e.g. "Flores, Marlene"
+): Promise<string[]> {
+  const downloadedFiles: string[] = [];
+
+  // ── Sanitize filename parts ──────────────────────────────────────────────
+  // Kinser only allows: letters, numbers, spaces, dashes, parentheses, underscores, periods
+  const safe = (s: string) => s
+    .replace(/,/g, '')
+    .replace(/[^A-Za-z0-9 \-_(). ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const safeDatePart = visitDate.replace(/\//g, '-');  // 02/17/2026 → 02-17-2026
+  const fileBase     = `${safe(visitName)}-${safeDatePart}-${safe(patientName)}`;
+
+  // ── Fuzzy duplicate check: scan existing files for same visit+date ───────
+  // Old files may have had commas in names. Match on normalized date + visit type.
+  const fuzzyKey = `${safe(visitName).toLowerCase()}-${safeDatePart}`.replace(/\s+/g, '-');
+  const existingFiles = fs.existsSync(PATIENT_FILES_DIR)
+    ? fs.readdirSync(PATIENT_FILES_DIR)
+    : [];
+  const alreadyDownloaded = existingFiles.filter(f => {
+    const norm = f.toLowerCase().replace(/,/g, '').replace(/\s+/g, '-');
+    return norm.includes(fuzzyKey);
+  });
+
+  // ── Wait for notes section ───────────────────────────────────────────────
+  const notesSection = pageB.locator('#VisitDetailNotes');
+  try {
+    await notesSection.waitFor({ state: 'visible', timeout: 5000 });
+  } catch {
+    console.log(`  ℹ No #VisitDetailNotes section found — skipping download`);
+    return [];
+  }
+
+  const noteItems = pageB.locator('#VisitDetailNotes .divNoteItem');
+  const noteCount = await noteItems.count();
+
+  if (noteCount === 0) {
+    console.log(`  ℹ No note items found for visit: ${visitName}`);
+    return [];
+  }
+
+  for (let i = 0; i < noteCount; i++) {
+    const note = noteItems.nth(i);
+
+    // ── Check for View button ────────────────────────────────────────────
+    const viewButton = note.locator('button.green-button.uppercase');
+    if (!(await viewButton.count())) continue;
+
+    // ── Get the note label for logging ───────────────────────────────────
+    const labelEl = note.locator('.section-header label');
+    const noteLabel = (await labelEl.count())
+      ? (await labelEl.innerText()).trim()
+      : `Note ${i + 1}`;
+
+    // ── Build target PDF path ─────────────────────────────────────────────
+    const pdfPath = path.join(PATIENT_FILES_DIR, `${fileBase}-${i + 1}.pdf`);
+
+    // ── Skip if already downloaded (fuzzy match on visit+date pattern) ────
+    const fuzzyMatch = alreadyDownloaded.find(f =>
+      f.toLowerCase().includes(`-${i + 1}.pdf`)
+    );
+    if (fuzzyMatch || fs.existsSync(pdfPath)) {
+      const existingPath = path.join(PATIENT_FILES_DIR, fuzzyMatch ?? path.basename(pdfPath));
+      console.log(`  ⏭ Already exists, skipping: ${fuzzyMatch ?? path.basename(pdfPath)}`);
+      downloadedFiles.push(fs.existsSync(pdfPath) ? pdfPath : existingPath);
+      continue;
+    }
+
+    // ── Extract ViewNote URL from onclick attr ────────────────────────────
+    // onclick="ViewNote('/Note/GetPrintable?noteId=809066')"
+    const onclickAttr = await viewButton.getAttribute('onclick') ?? '';
+    const urlMatch = onclickAttr.match(/ViewNote\(['"]([^'"]+)['"]\)/);
+
+    if (!urlMatch) {
+      console.log(`  ⚠ Could not parse ViewNote URL for "${noteLabel}" — skipping`);
+      continue;
+    }
+
+    const noteUrl = urlMatch[1]; // e.g. "/Note/GetPrintable?noteId=809066"
+
+    // ── Open printable page in new tab ───────────────────────────────────
+    const currentBaseUrl = new URL(pageB.url());
+    const printableUrl = `${currentBaseUrl.origin}${noteUrl}`;
+
+    const newPage = await pageB.context().newPage();
+    try {
+      await newPage.goto(printableUrl, { waitUntil: 'load', timeout: 15000 });
+      await newPage.pdf({ path: pdfPath, format: 'A4' });
+      downloadedFiles.push(pdfPath);
+      console.log(`  ✅ Downloaded: ${path.basename(pdfPath)} ("${noteLabel}")`);
+    } catch (err: any) {
+      console.log(`  ⚠ Failed to download "${noteLabel}": ${err.message}`);
+    } finally {
+      await newPage.close();
+    }
+  }
+
+  if (downloadedFiles.length === 0) {
+    console.log(`  ℹ No PDFs downloaded for visit: ${visitName}`);
+  } else {
+    console.log(`  ✅ Total PDFs for this visit: ${downloadedFiles.length}`);
+  }
+
+  return downloadedFiles;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGACY / UNUSED — kept for API compatibility
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getScheduleStatus(
+  pageB: Page,
+  discipline: string,
+  visitType: string,
+  visitDate: string
+) {
+  const row = pageB.locator(`.record-visititem[data-discipline="${discipline}"]`);
+  const status = await row.locator('span').first().innerText();
+  return { row, status };
+}
+
+export async function getVisitTimes(pageB: Page, row: any) {
+  const timeIn    = await row.locator('.record-visit-date').first().innerText();
+  const timeOut   = await row.locator('.record-visit-date').nth(1).innerText();
+  const visitDate = await row.locator('.record-visit-date').first().innerText();
+  return { visitDate, timeIn, timeOut };
+}
+
+export async function printOtherDocuments(pageB: Page) {
+  const docButtons = pageB.locator('.divNoteItem button:has-text("View")');
+  const count = await docButtons.count();
+  for (let i = 0; i < count; i++) {
+    await docButtons.nth(i).click();
+    console.log('Sent document to printer');
+    await pageB.goBack();
+  }
+}
+
+export const VISIT_TYPE_MAP: Record<string, string[]> = {
+  'OT Evaluation':    ['initial eval'],
+  'PT Evaluation':    ['initial eval'],
+  'ST Evaluation':    ['initial eval'],
+  'PT Re-Evaluation': ['reassessment'],
+  'OT Re-Evaluation': ['reassessment'],
+  'COTA Visit':       ['standard'],
+  'PTA Visit':        ['standard'],
+  'OT Visit':         ['standard'],
+  'PT Visit':         ['standard'],
+};
